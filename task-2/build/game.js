@@ -1,7 +1,105 @@
-console.log(
-  `This file should get overwritten once you've successfully run:
-  
-npm run build
-
-in your terminal.`
-);
+/** Some elements that we need to interact with. */
+const elements = {
+    choiceButtons: document.querySelector("#choices"),
+    computerScore: document.querySelector("#computer-score"),
+    playerScore: document.querySelector("#player-score"),
+    currentOutcome: document.querySelector("#current-outcome"),
+};
+// ! after the element, it automatically cancels null
+/** Some related "constants" which represent the various outcomes a round can have. */
+export var Outcome;
+(function (Outcome) {
+    Outcome["WIN"] = "WIN";
+    Outcome["DRAW"] = "DRAW";
+    Outcome["LOSS"] = "LOSS";
+})(Outcome || (Outcome = {}));
+;
+/** Some related "constants" which represent the possible choices a player can make when playing. */
+export var Choice;
+(function (Choice) {
+    Choice["ROCK"] = "ROCK";
+    Choice["PAPER"] = "PAPER";
+    Choice["SCISSORS"] = "SCISSORS";
+})(Choice || (Choice = {}));
+;
+export const model = {
+    playerScore: 0,
+    computerScore: 0,
+};
+/** Should return a a randomly selected choice. Either: "ROCK", "PAPER", "SCISSORS" */
+export function getRandomComputerMove() {
+    const possibleChoices = Object.values(Choice);
+    const randomIndex = Math.trunc(Math.random() * possibleChoices.length);
+    return possibleChoices[randomIndex];
+}
+/**
+ * Should return a promise which resolves to either: "ROCK", "PAPER", or "SCISSORS"
+ *
+ * To have the promise resolve upon a button click, we "promisify" the click event.
+ *
+ * To avoid having to set up individual event listeners for each button, event delegation is used. So we listen for an event on just the parent and then use the dataset API to identify which child was clicked.
+ *
+ * To avoid accumulating event listeners over multiple rounds and any memory leaks, we clean up after ourselves and remove when the event listener (when/if the promise is about to be resolved).
+ */
+export function getPlayerMove() {
+    return new Promise((resolve) => {
+        elements.choiceButtons.addEventListener("click", function handleClick(event) {
+            const buttonWasClicked = event.target instanceof HTMLButtonElement;
+            if (buttonWasClicked) {
+                const rawChoice = event.target.dataset.choice;
+                const choice = Choice[rawChoice];
+                const choiceIsValid = undefined !== choice;
+                if (choiceIsValid) {
+                    elements.choiceButtons.removeEventListener("click", handleClick);
+                    resolve(choice);
+                }
+                else {
+                    console.warn(`Unexpected raw choice: ${rawChoice}`);
+                }
+            }
+        });
+    });
+}
+/** Should return an outcome. Either "WIN", "LOSS" or "DRAW" */
+export function getOutcomeForRound(playerMove, computerMove) {
+    const playerHasDrawn = playerMove === computerMove;
+    if (playerHasDrawn) {
+        return Outcome.DRAW;
+    }
+    const playerHasWon = (playerMove === Choice.PAPER && computerMove === Choice.ROCK) ||
+        (playerMove === Choice.SCISSORS && computerMove === Choice.PAPER) ||
+        (playerMove === Choice.ROCK && computerMove === Choice.SCISSORS);
+    if (playerHasWon) {
+        return Outcome.WIN;
+    }
+    return Outcome.LOSS;
+}
+/** Should return a promise which resolves to an object containing information about the played round. */
+export async function playOneRound() {
+    const playerMove = await getPlayerMove();
+    const computerMove = getRandomComputerMove();
+    const outcome = getOutcomeForRound(playerMove, computerMove);
+    return {
+        playerMove,
+        computerMove,
+        outcome,
+    };
+}
+/** Should return a promise which, if the loop were to stop, would resolve to undefined. */
+export async function playGame() {
+    while (true) {
+        const dataForRound = await playOneRound();
+        switch (dataForRound.outcome) {
+            case Outcome.WIN:
+                model.playerScore++;
+                elements.playerScore.textContent = model.playerScore.toString(10);
+                break;
+            case Outcome.LOSS:
+                model.computerScore++;
+                elements.computerScore.textContent = model.computerScore.toString(10);
+                break;
+        }
+        elements.currentOutcome.textContent = `Result: ${dataForRound.outcome}`;
+    }
+}
+await playGame();

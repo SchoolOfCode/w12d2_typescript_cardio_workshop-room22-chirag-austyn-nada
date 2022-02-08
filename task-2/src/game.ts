@@ -1,34 +1,41 @@
 /** Some elements that we need to interact with. */
 const elements = {
-  choiceButtons: document.querySelector("#choices"),
-  computerScore: document.querySelector("#computer-score"),
-  playerScore: document.querySelector("#player-score"),
-  currentOutcome: document.querySelector("#current-outcome"),
+  choiceButtons: document.querySelector("#choices")!,
+  computerScore: document.querySelector("#computer-score")!,
+  playerScore: document.querySelector("#player-score")!,
+  currentOutcome: document.querySelector("#current-outcome")!,
 };
 
+// ! after the element, it automatically cancels null
+
 /** Some related "constants" which represent the various outcomes a round can have. */
-export const OUTCOMES = {
-  WIN: "WIN",
-  DRAW: "DRAW",
-  LOSS: "LOSS",
+export enum Outcome {
+  WIN = "WIN",
+  DRAW=  "DRAW",
+  LOSS = "LOSS",
 };
 
 /** Some related "constants" which represent the possible choices a player can make when playing. */
-export const CHOICES = {
-  ROCK: "ROCK",
-  PAPER: "PAPER",
-  SCISSORS: "SCISSORS",
+export enum Choice  {
+  ROCK = "ROCK",
+  PAPER = "PAPER",
+  SCISSORS = "SCISSORS",
 };
 
 /** Some basic game state, where things like scores are tracked. */
-export const model = {
+type GameModel=  {
+  playerScore: number,
+  computerScore: number,
+};
+
+export const model: GameModel=  {
   playerScore: 0,
   computerScore: 0,
 };
 
 /** Should return a a randomly selected choice. Either: "ROCK", "PAPER", "SCISSORS" */
 export function getRandomComputerMove() {
-  const possibleChoices = Object.values(CHOICES);
+  const possibleChoices = Object.values(Choice);
   const randomIndex = Math.trunc(Math.random() * possibleChoices.length);
   return possibleChoices[randomIndex];
 }
@@ -42,7 +49,7 @@ export function getRandomComputerMove() {
  *
  * To avoid accumulating event listeners over multiple rounds and any memory leaks, we clean up after ourselves and remove when the event listener (when/if the promise is about to be resolved).
  */
-export function getPlayerMove() {
+export function getPlayerMove() : Promise<Choice> {
   return new Promise((resolve) => {
     elements.choiceButtons.addEventListener(
       "click",
@@ -50,7 +57,7 @@ export function getPlayerMove() {
         const buttonWasClicked = event.target instanceof HTMLButtonElement;
         if (buttonWasClicked) {
           const rawChoice = event.target.dataset.choice;
-          const choice = CHOICES[rawChoice];
+          const choice = Choice[rawChoice as keyof typeof Choice] ;
           const choiceIsValid = undefined !== choice;
 
           if (choiceIsValid) {
@@ -66,27 +73,34 @@ export function getPlayerMove() {
 }
 
 /** Should return an outcome. Either "WIN", "LOSS" or "DRAW" */
-export function getOutcomeForRound(playerMove, computerMove) {
+export function getOutcomeForRound(playerMove :Choice, computerMove: Choice) {
   const playerHasDrawn = playerMove === computerMove;
 
   if (playerHasDrawn) {
-    return OUTCOMES.DRAW;
+    return Outcome.DRAW;
   }
 
   const playerHasWon =
-    (playerMove === CHOICES.PAPER && computerMove === CHOICES.ROCK) ||
-    (playerMove === CHOICES.SCISSORS && computerMove === CHOICES.PAPER) ||
-    (playerMove === CHOICES.ROCK && computerMove === CHOICES.SCISSORS);
+    (playerMove === Choice.PAPER && computerMove === Choice.ROCK) ||
+    (playerMove === Choice.SCISSORS && computerMove === Choice.PAPER) ||
+    (playerMove === Choice.ROCK && computerMove === Choice.SCISSORS);
 
   if (playerHasWon) {
-    return OUTCOMES.WIN;
+    return Outcome.WIN;
   }
 
-  return OUTCOMES.LOSS;
+  return Outcome.LOSS;
+}
+
+export type RoundData = {
+
+  playerMove: Choice;
+  computerMove: Choice;
+  outcome: Outcome;
 }
 
 /** Should return a promise which resolves to an object containing information about the played round. */
-export async function playOneRound() {
+export async function playOneRound(): Promise<RoundData>  {
   const playerMove = await getPlayerMove();
   const computerMove = getRandomComputerMove();
   const outcome = getOutcomeForRound(playerMove, computerMove);
@@ -103,13 +117,13 @@ export async function playGame() {
     const dataForRound = await playOneRound();
 
     switch (dataForRound.outcome) {
-      case OUTCOMES.WIN:
+      case Outcome.WIN:
         model.playerScore++;
-        elements.playerScore.textContent = model.playerScore;
+        elements.playerScore.textContent = model.playerScore.toString(10);
         break;
-      case OUTCOMES.LOSS:
+      case Outcome.LOSS:
         model.computerScore++;
-        elements.computerScore.textContent = model.computerScore;
+        elements.computerScore.textContent = model.computerScore.toString(10);
         break;
     }
 
